@@ -1,0 +1,80 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 1. Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Phase 3: Primitive Definition
+    function isValidId(id) { return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); }
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
+    function isSignedIn() { return request.auth != null && request.auth.token.email_verified == true; }
+    function isAdmin() { return isSignedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid)) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'; }
+
+    // User Entity Validation
+    function isValidUser(data) {
+      return data.keys().hasAll(['email', 'role', 'createdAt', 'updatedAt']) &&
+             data.email is string && data.email.size() <= 256 &&
+             data.role is string && (data.role == 'student' || data.role == 'admin') &&
+             data.createdAt is timestamp &&
+             data.updatedAt is timestamp &&
+             (!data.keys().hasAny(['apiKey']) || (data.apiKey is string && data.apiKey.size() <= 256)) &&
+             (!data.keys().hasAny(['lastActiveAt']) || data.lastActiveAt is timestamp);
+    }
+
+    match /users/{userId} {
+      allow read: if isSignedIn() && (request.auth.uid == userId || isAdmin() || request.auth.token.email == 'anyabandgar458@gmail.com');
+      
+      allow create: if isSignedIn() &&
+                    request.auth.uid == userId &&
+                    isValidId(userId) &&
+                    isValidUser(incoming()) &&
+                    incoming().email == request.auth.token.email &&
+                    // Cannot self-assign admin unless email is the known admin email
+                    (incoming().role == 'student' || (incoming().role == 'admin' && request.auth.token.email == 'anyabandgar458@gmail.com')) &&
+                    incoming().createdAt == request.time &&
+                    incoming().updatedAt == request.time;
+
+      allow update: if isSignedIn() &&
+                    request.auth.uid == userId &&
+                    isValidUser(incoming()) &&
+                    incoming().email == existing().email &&
+                    incoming().createdAt == existing().createdAt &&
+                    incoming().updatedAt == request.time &&
+                    // Role can only be changed by admin or if they are admin updating their own
+                    (incoming().role == existing().role || (existing().role == 'admin' && request.auth.token.email == 'anyabandgar458@gmail.com')) &&
+                    incoming().diff(existing()).affectedKeys().hasOnly(['updatedAt', 'role', 'apiKey', 'lastActiveAt']);
+    }
+
+    // HistoryItem Entity Validation
+    function isValidHistoryItem(data) {
+      return data.keys().hasAll(['userId', 'date', 'topicTitle', 'inputType', 'result', 'createdAt']) &&
+             data.userId is string && data.userId.size() <= 128 &&
+             data.date is number &&
+             data.topicTitle is string && data.topicTitle.size() <= 500 &&
+             data.inputType is string && (data.inputType == 'image' || data.inputType == 'text' || data.inputType == 'audio') &&
+             data.result is string && data.result.size() <= 500000 && // allow large string for JSON
+             data.createdAt is timestamp;
+    }
+
+    match /history/{historyId} {
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      
+      allow create: if isSignedIn() &&
+                    isValidId(historyId) &&
+                    isValidHistoryItem(incoming()) &&
+                    incoming().userId == request.auth.uid &&
+                    incoming().createdAt == request.time &&
+                    (
+                      (!incoming().keys().hasAny(['textInput']) && incoming().keys().size() == 6) ||
+                      (incoming().keys().hasAll(['textInput']) && incoming().textInput is string && incoming().textInput.size() <= 50000 && incoming().keys().size() == 7)
+                    ) &&
+                    exists(/databases/$(database)/documents/users/$(request.auth.uid));
+                    
+      allow delete: if isSignedIn() && existing().userId == request.auth.uid;
+    }
+  }
+}
