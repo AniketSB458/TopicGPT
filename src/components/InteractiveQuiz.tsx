@@ -16,7 +16,7 @@ export function InteractiveQuiz({ questions }: { questions: QuizQuestion[] }) {
   };
 
   const score = Object.entries(selectedAnswers).reduce((acc, [idx, ans]) => {
-    return acc + (ans === questions[Number(idx)].answer ? 1 : 0);
+    return acc + (ans === questions[Number(idx)]?.answer ? 1 : 0);
   }, 0);
 
   if (!questions || questions.length === 0) {

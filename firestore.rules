@@ -21,7 +21,8 @@ service cloud.firestore {
              data.createdAt is timestamp &&
              data.updatedAt is timestamp &&
              (!data.keys().hasAny(['apiKey']) || (data.apiKey is string && data.apiKey.size() <= 256)) &&
-             (!data.keys().hasAny(['lastActiveAt']) || data.lastActiveAt is timestamp);
+             (!data.keys().hasAny(['lastActiveAt']) || data.lastActiveAt is timestamp) &&
+             (!data.keys().hasAny(['freeSearchesUsed']) || (data.freeSearchesUsed is number && data.freeSearchesUsed >= 0 && data.freeSearchesUsed <= 50));
     }
 
     match /users/{userId} {
@@ -35,7 +36,8 @@ service cloud.firestore {
                     // Cannot self-assign admin unless email is the known admin email
                     (incoming().role == 'student' || (incoming().role == 'admin' && request.auth.token.email == 'anyabandgar458@gmail.com')) &&
                     incoming().createdAt == request.time &&
-                    incoming().updatedAt == request.time;
+                    incoming().updatedAt == request.time &&
+                    (!incoming().keys().hasAny(['freeSearchesUsed']) || incoming().freeSearchesUsed == 0);
 
       allow update: if isSignedIn() &&
                     request.auth.uid == userId &&
@@ -45,7 +47,14 @@ service cloud.firestore {
                     incoming().updatedAt == request.time &&
                     // Role can only be changed by admin or if they are admin updating their own
                     (incoming().role == existing().role || (existing().role == 'admin' && request.auth.token.email == 'anyabandgar458@gmail.com')) &&
-                    incoming().diff(existing()).affectedKeys().hasOnly(['updatedAt', 'role', 'apiKey', 'lastActiveAt']);
+                    incoming().diff(existing()).affectedKeys().hasOnly(['updatedAt', 'role', 'apiKey', 'lastActiveAt', 'freeSearchesUsed']) &&
+                    (
+                      !incoming().diff(existing()).affectedKeys().hasAny(['freeSearchesUsed']) || 
+                      (incoming().freeSearchesUsed == existing().freeSearchesUsed + 1 && existing().freeSearchesUsed < 50) ||
+                      (incoming().freeSearchesUsed == existing().freeSearchesUsed - 1 && existing().freeSearchesUsed > 0) ||
+                      (incoming().freeSearchesUsed == 1 && !existing().keys().hasAny(['freeSearchesUsed'])) ||
+                      isAdmin()
+                    );
     }
 
     // HistoryItem Entity Validation

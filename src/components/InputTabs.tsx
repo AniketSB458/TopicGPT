@@ -4,9 +4,10 @@ import { UploadCloud, Camera, Mic, Square, Loader2, Send } from 'lucide-react';
 interface InputTabsProps {
   onSubmit: (inputType: 'image' | 'text' | 'audio', file: File | null, text: string) => void;
   isLoading: boolean;
+  freeSearchesRemaining?: number | null;
 }
 
-export function InputTabs({ onSubmit, isLoading }: InputTabsProps) {
+export function InputTabs({ onSubmit, isLoading, freeSearchesRemaining }: InputTabsProps) {
   const [textInput, setTextInput] = useState('');
   const [isRecording, setIsRecording] = useState(false);
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
@@ -183,6 +184,14 @@ export function InputTabs({ onSubmit, isLoading }: InputTabsProps) {
                   Analyze Audio
                 </button>
               </div>
+            </div>
+          )}
+
+          {freeSearchesRemaining !== undefined && freeSearchesRemaining !== null && (
+            <div className="flex justify-center items-center mt-4 text-xs font-medium text-zinc-500">
+              <span className={`px-2.5 py-1 rounded-full ${freeSearchesRemaining > 0 ? 'bg-zinc-100' : 'bg-rose-100 text-rose-700'}`}>
+                {freeSearchesRemaining} free {freeSearchesRemaining === 1 ? 'search' : 'searches'} remaining
+              </span>
             </div>
           )}
 

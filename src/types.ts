@@ -38,6 +38,7 @@ export interface User {
   role: 'student' | 'admin';
   uid: string;
   apiKey?: string;
+  freeSearchesUsed?: number;
 }
 
 export interface HistoryItem {

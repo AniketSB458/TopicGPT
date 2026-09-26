@@ -1,0 +1,44 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile with role and usage stats",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string", "maxLength": 256 },
+        "role": { "type": "string", "enum": ["student", "admin"] },
+        "apiKey": { "type": "string", "maxLength": 256 },
+        "lastActiveAt": { "type": "string", "format": "date-time" },
+        "freeSearchesUsed": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["email", "role", "createdAt", "updatedAt"]
+    },
+    "HistoryItem": {
+      "title": "HistoryItem",
+      "description": "Saved past lecture notes analysis",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "maxLength": 128 },
+        "date": { "type": "number" },
+        "topicTitle": { "type": "string", "maxLength": 500 },
+        "inputType": { "type": "string", "enum": ["image", "text", "audio"] },
+        "textInput": { "type": "string", "maxLength": 50000 },
+        "result": { "type": "string", "maxLength": 500000 },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "date", "topicTitle", "inputType", "result", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User account documents keyed by auth UID"
+    },
+    "/history/{historyId}": {
+      "schema": "HistoryItem",
+      "description": "User analysis history records"
+    }
+  }
+}

@@ -9,9 +9,11 @@ import {
   PenTool,
   CheckCircle2,
   AlertTriangle,
-  ExternalLink
+  ExternalLink,
+  Download
 } from 'lucide-react';
 import { InteractiveQuiz } from './InteractiveQuiz';
+import { jsPDF } from 'jspdf';
 
 interface AnalysisResultsProps {
   data: BoardAnalysisResult;
@@ -26,6 +28,62 @@ export function AnalysisResults({ data, imageUrl, inputType, textInput }: Analys
     if (q.includes('good')) return 'bg-emerald-100 text-emerald-800 border-emerald-200';
     if (q.includes('moderate')) return 'bg-amber-100 text-amber-800 border-amber-200';
     return 'bg-rose-100 text-rose-800 border-rose-200';
+  };
+
+  const handleDownloadPdf = () => {
+    const doc = new jsPDF();
+    const margin = 14;
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const maxLineWidth = pageWidth - margin * 2;
+    let y = 20;
+
+    const addText = (text: string, fontSize: number, isBold: boolean = false) => {
+      doc.setFontSize(fontSize);
+      doc.setFont('helvetica', isBold ? 'bold' : 'normal');
+      const lines = doc.splitTextToSize(text, maxLineWidth);
+      
+      for (let i = 0; i < lines.length; i++) {
+        if (y > 280) {
+          doc.addPage();
+          y = 20;
+        }
+        doc.text(lines[i], margin, y);
+        y += fontSize * 0.4 + 2;
+      }
+      y += 5; // Extra spacing after a block
+    };
+
+    addText('TopicGPT Analysis Results', 20, true);
+    y += 5;
+
+    addText('Lecture Summary', 16, true);
+    addText(data.lectureSummary || '', 12);
+    
+    if (data.keyConcepts && data.keyConcepts.length > 0) {
+      addText('Key Concepts', 16, true);
+      data.keyConcepts.forEach(concept => {
+        addText(`• ${concept}`, 12);
+      });
+    }
+
+    y += 5;
+    addText('Structured Notes', 20, true);
+    
+    addText('Executive Summary', 14, true);
+    addText(data.generatedNotes?.short || '', 12);
+
+    addText('Comprehensive Detail', 14, true);
+    addText(data.generatedNotes?.detailed || '', 12);
+
+    if (data.homework && data.homework.length > 0) {
+      y += 5;
+      addText('Action Items', 16, true);
+      data.homework.forEach(item => {
+        addText(`• ${item}`, 12);
+      });
+    }
+
+    doc.save('TopicGPT_Analysis_Notes.pdf');
   };
 
   return (
@@ -82,14 +140,14 @@ export function AnalysisResults({ data, imageUrl, inputType, textInput }: Analys
                 Subjects Detected
               </h2>
               <div className="space-y-6">
-                {data.subjects.map((sub, idx) => (
+                {(data.subjects || []).map((sub, idx) => (
                   <div key={idx} className="space-y-3">
                     <div className="flex justify-between items-center border-b border-zinc-100 pb-2">
                       <span className="font-semibold text-zinc-800 tracking-tight">{sub.subjectName}</span>
                       <span className="text-xs text-zinc-400 uppercase tracking-widest">{sub.confidence}% confident</span>
                     </div>
                     <div className="flex flex-wrap gap-2">
-                      {sub.topics.map((t, i) => (
+                      {(sub.topics || []).map((t, i) => (
                         <span key={i} className="px-3 py-1 bg-zinc-100 text-zinc-700 text-xs font-medium rounded-lg">
                           {t}
                         </span>
@@ -106,14 +164,14 @@ export function AnalysisResults({ data, imageUrl, inputType, textInput }: Analys
                 Key Concepts
               </h2>
               <ul className="space-y-3">
-                {data.keyConcepts.map((concept, idx) => (
+                {(data.keyConcepts || []).map((concept, idx) => (
                   <li key={idx} className="flex items-start gap-3 text-zinc-700 text-base font-light">
                     <CheckCircle2 className="w-5 h-5 text-emerald-500 mt-0.5 shrink-0" />
                     <span className="leading-relaxed">{concept}</span>
                   </li>
                 ))}
               </ul>
-              {data.keyConcepts.length === 0 && <p className="text-sm text-zinc-400 font-light">None detected.</p>}
+              {(!data.keyConcepts || data.keyConcepts.length === 0) && <p className="text-sm text-zinc-400 font-light">None detected.</p>}
             </div>
           </div>
         </div>
@@ -122,20 +180,29 @@ export function AnalysisResults({ data, imageUrl, inputType, textInput }: Analys
       {/* Notes and Details */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:p-8">
         <div className="bg-white p-6 sm:p-8 border border-zinc-200 rounded-3xl shadow-sm space-y-8">
-          <h2 className="text-2xl font-display font-medium text-zinc-900 flex items-center gap-3">
-            <PenTool className="w-6 h-6 text-zinc-400" />
-            Structured Notes
-          </h2>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <h2 className="text-2xl font-display font-medium text-zinc-900 flex items-center gap-3">
+              <PenTool className="w-6 h-6 text-zinc-400" />
+              Structured Notes
+            </h2>
+            <button
+              onClick={handleDownloadPdf}
+              className="flex items-center gap-2 px-4 py-2 bg-zinc-900 text-white text-sm font-medium rounded-xl hover:bg-zinc-800 transition-colors shadow-sm whitespace-nowrap"
+            >
+              <Download className="w-4 h-4" />
+              Download PDF
+            </button>
+          </div>
           <div>
             <h3 className="text-xs font-semibold text-zinc-400 uppercase tracking-widest mb-3">Executive Summary</h3>
             <p className="text-zinc-700 text-base leading-relaxed font-light bg-zinc-50/50 p-5 rounded-2xl border border-zinc-100">
-              {data.generatedNotes.short}
+              {data.generatedNotes?.short || 'No summary available.'}
             </p>
           </div>
           <div>
             <h3 className="text-xs font-semibold text-zinc-400 uppercase tracking-widest mb-3">Comprehensive Detail</h3>
             <p className="text-zinc-700 text-base leading-relaxed font-light whitespace-pre-wrap bg-zinc-50/50 p-5 rounded-2xl border border-zinc-100">
-              {data.generatedNotes.detailed}
+              {data.generatedNotes?.detailed || 'No detailed notes available.'}
             </p>
           </div>
         </div>
@@ -146,19 +213,19 @@ export function AnalysisResults({ data, imageUrl, inputType, textInput }: Analys
               <GraduationCap className="w-6 h-6 text-zinc-400" />
               Knowledge Check
             </h2>
-            <InteractiveQuiz questions={data.generatedQuiz} />
+            <InteractiveQuiz questions={data.generatedQuiz || []} />
           </div>
 
-          {(data.homework.length > 0 || (data.resources && data.resources.length > 0)) && (
+          {(((data.homework?.length ?? 0) > 0) || ((data.resources?.length ?? 0) > 0)) && (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-              {data.homework.length > 0 && (
+              {(data.homework?.length ?? 0) > 0 && (
                 <div className="bg-rose-50/30 p-6 sm:p-8 border border-rose-100 rounded-3xl shadow-sm">
                   <h2 className="text-xl font-display font-medium text-rose-900 mb-4 flex items-center gap-3">
                     <AlertTriangle className="w-5 h-5 text-rose-500" />
                     Action Items
                   </h2>
                   <ul className="space-y-3">
-                    {data.homework.map((hw, idx) => (
+                    {(data.homework || []).map((hw, idx) => (
                       <li key={idx} className="flex items-start gap-3 text-rose-800 text-base font-light">
                         <span className="shrink-0 mt-1 opacity-60">•</span>
                         <span className="leading-relaxed">{hw}</span>

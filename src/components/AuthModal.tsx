@@ -33,7 +33,8 @@ export function AuthModal({ onClose, onLogin }: AuthModalProps) {
           role,
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
-          lastActiveAt: serverTimestamp()
+          lastActiveAt: serverTimestamp(),
+          freeSearchesUsed: 0
         });
       } else {
         role = userDoc.data().role as 'student' | 'admin';
@@ -41,8 +42,16 @@ export function AuthModal({ onClose, onLogin }: AuthModalProps) {
 
       onLogin({ username: user.email || user.uid, role, uid: user.uid });
     } catch (err: any) {
-      console.error(err);
-      setError(err.message || 'Failed to sign in with Google');
+      console.error("Sign-in error details:", err);
+      if (err?.code === 'auth/popup-closed-by-user') {
+        setError('Sign-in popup was closed before completing. Please try again.');
+      } else if (err?.code === 'auth/popup-blocked') {
+        setError('The sign-in popup was blocked by your browser. Please allow popups for this site.');
+      } else if (err?.code === 'auth/cancelled-popup-request') {
+        setError('A newer sign-in attempt was started.');
+      } else {
+        setError(err.message || 'Failed to sign in with Google. Please try again.');
+      }
     } finally {
       setLoading(false);
     }
